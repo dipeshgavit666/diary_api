@@ -1,29 +1,40 @@
 import express from "express";
-import dotenv from "dotenv"
-import connectDB from "./db/index.js";
+import dotenv from "dotenv";
+import mongoose from "mongoose";
+import cors from "cors";
+import postRoutes from "./routes/posts.routes.js";
+import userRoutes from "./routes/users.routes.js";
 
-//import routes
-import postRouter from "./routes/posts.routes.js"
-
-dotenv.config({
-    path: "./.env"
-})
+dotenv.config();
+const port = process.env.PORT;
 
 const app = express();
-app.use(express.json());  // for parsing application/json
-app.use(express.urlencoded({ extended: true }));  // for parsing application/x-www-form-urlencoded
+app.use(express.json());
+app.use(cors());
 
-const PORT = process.env.PORT || 4001
-connectDB() //connecting database
-.then(() => {
-    app.listen(PORT, () => {
-        console.log(`server is running on port ${PORT}`)
-    })
-})
-.catch((error) => {
-    console.log("mongoDB connection error",error)
-})
+app.use((req, res, next) => {
+  console.log(req.path, req.method);
+  next();
+});
 
+app.use("/api/posts", postRoutes);
+app.use("/api/user", userRoutes);
 
-// routes
-app.use('/api/v1/posts', postRouter);
+const connectDB = async () => {
+  try {
+    mongoose.set("strictQuery", true);
+
+    mongoose.connect(process.env.MONGO_URI);
+
+    console.log("MongoDB connected");
+  } catch (err) {
+    console.error(err.message);
+    process.exit(1);
+  }
+};
+
+connectDB()
+  .then(() => {
+    app.listen(port, () => console.log(`listening on port ${port}`));
+  })
+  .catch((err) => console.log(err));

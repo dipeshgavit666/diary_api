@@ -1,154 +1,75 @@
-import { ApiError } from "../../../../Youtube/server/src/utils/ApiError.js"
-import {ApiResponse} from "../utils/ApiResponse.js"
-import {asyncHandler} from "../utils/asyncHandler.js"
-import {Post} from "../models/Post.models.js"
-import mongoose from "mongoose"
+import mongoose from "mongoose";
+import Post from "../models/Post.models.js";
 
+export const getAllPosts = async (req, res) => {
+  const user_id = req.user._id;
 
+  try {
+    const posts = await Post.find({ user_id }).sort({ createdAt: -1 });
+    res.status(200).json(posts);
+  } catch (err) {
+    res.status(404).json({ error: err.message });
+  }
+};
 
-const getAllPosts = asyncHandler( async (req, res) => {
-    const posts = await Post.find({ }).sort({ createdAt: -1 });
-    try {
-        return res
-        .status(200)
-        .json(new ApiResponse(200, {posts}, "All posts"))
-    } catch (error) {
-        throw new ApiError(400, "something went wrong while fetching ")
-    }
-})
+export const getPost = async (req, res) => {
+  const { id } = req.params;
 
-const getPost = asyncHandler( async (req, res) => {
-    const { id } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(id))
+    return res.status(404).json({ error: "post does not exist" });
 
-    if(!mongoose.Types.ObjectId.isValid(id)){
-        throw new ApiError(404, "Post does not exist")
-    }
+  try {
+    const post = await Post.findById(id);
+    if (!post) return res.status(404).json({ error: "post does not exist" });
+    res.status(200).json(post);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
 
-    try {
-        const post = await Post.findById(id);
+export const createPost = async (req, res) => {
+  const { date, title, content } = req.body;
+  const user_id = req.user._id;
 
-        if(!post){
-            throw new ApiError(400, "cant find post")
-        }
+  try {
+    const post = await Post.create({ date, title, content, user_id });
+    res.status(200).json(post);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
 
-        return res
-        .status(200)
-        .json(new ApiResponse(200, {post}, "post deleted"))
+export const deletePost = async (req, res) => {
+  const { id } = req.params;
 
-    } catch (error) {
-        throw new ApiError(400, "something went wrong")
-    }
-})
+  if (!mongoose.Types.ObjectId.isValid(id))
+    return res.status(404).json({ error: "post does not exist" });
 
-const createPost = asyncHandler(async (req, res) => {
-    if (!req.body) {
-        throw new ApiError(400, 'Request body is missing');
-    }
+  try {
+    const post = await Post.findById(id);
+    if (!post) return res.status(404).json({ error: "post does not exist" });
+    const deletedPost = await Post.findOneAndDelete({ _id: id });
+    res.status(200).json(deletedPost);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
 
-    const {date, title, content} = req.body
-    
-    // Validate title and content (date can use default)
-    if (!title || !content) {
-        throw new ApiError(400, "Title and content are required");
-    }
+export const updatePost = async (req, res) => {
+  const { id } = req.params;
 
-    if([title, content].some((field) => field?.trim() === "")) {
-        throw new ApiError(400, "Fields cannot be empty strings");
-    }
+  if (!mongoose.Types.ObjectId.isValid(id))
+    return res.status(404).json({ error: "post does not exist" });
 
-    try {
-        const postData = {
-            title,
-            content
-        };
-
-        // Only add date if it was provided in request
-        if (date) {
-            postData.date = new Date(date);
-        }
-
-        const post = await Post.create(postData);
-
-        if (!post) {
-            throw new ApiError(400, "Failed to create post");
-        }
-
-        return res
-            .status(201)
-            .json(
-                new ApiResponse(
-                    201, 
-                    "Post created successfully",
-                    post
-                )
-            );
-    } catch (error) {
-        console.error("Post creation error:", error);
-        throw new ApiError(
-            400, 
-            `Post creation failed: ${error.message}`
-        );
-    }
-});
-
-const deletePost = asyncHandler( async (req, res) => {
-    const { id } = req.params;
-
-    if(!mongoose.Types.ObjectId.isValid(id)){
-        throw new ApiError(404, "Post does not exists")
-    }
-
-    try {
-        const post = await Post.findById(id);
-        if(!post){
-            throw new ApiError(404, "post does not exists")
-            
-        }
-        const deletedPost = await Post.findByIdAndDelete({_id: id})
-
-        return res
-        .status(200)
-        .json(new ApiResponse(200, {deletedPost}, "post deleted"))
-
-    } catch (error) {
-        throw new ApiError(400, "something went wrong while deleting post")
-    }
-
-})
-
-const updatePost = asyncHandler( async (req, res) => {
-    const { id } = req.params;
-
-    if(!mongoose.Types.ObjectId.isValid(id)){
-        throw new ApiError(404, "Post does not exists")
-    }
-
-    try {
-        const post = await Post.findById(id);
-        if(!post){
-            throw new ApiError(404, "post does not exists")
-            
-        }
-        const updatedPost = await Post.findByIdAndUpdate({_id: id}, {...req.body})
-
-        return res
-        .status(200)
-        .json(new ApiResponse(200, {updatedPost}, "post updated"))
-
-    } catch (error) {
-        throw new ApiError(400, "something went wrong while updating post")
-    }
-})
-
-
-
-export {
-    getAllPosts,
-    getPost,
-    createPost,
-    deletePost,
-    updatePost
-}
-// export const getAllPosts = async (req, res) => {
-//     res.json({mdg:"backend server s running"})
-// }
+  try {
+    const post = await Post.findById(id);
+    if (!post) return res.status(404).json({ error: "post does not exist" });
+    const updatedPost = await Post.findOneAndUpdate(
+      { _id: id },
+      { ...req.body },
+    );
+    res.status(200).json(updatedPost);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
